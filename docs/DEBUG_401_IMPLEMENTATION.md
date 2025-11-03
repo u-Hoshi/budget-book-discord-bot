@@ -102,14 +102,14 @@ if difyEndpoint == "" {
 ### 変更前
 ```env
 DIFY_API_URL=https://api.dify.ai/v1
-DIFY_API_KEY=app-vUxi2Givn01MQgK3rZd51ytk
+DIFY_API_KEY=app-hogehoge
 DIFY_FILE_UPLOAD_URL=https://api.dify.ai/v1/files/upload
 ```
 
 ### 変更後（推奨）
 ```env
 DIFY_ENDPOINT=https://api.dify.ai/v1
-DIFY_API_KEY=app-vUxi2Givn01MQgK3rZd51ytk
+DIFY_API_KEY=app-hogehoge
 ```
 
 **注**: `DIFY_API_URL`も引き続きサポートされます（後方互換性）

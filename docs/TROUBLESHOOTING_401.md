@@ -27,7 +27,7 @@
 **正しい形式**:
 - プレフィックス: `app-` で始まる
 - 長さ: 通常28文字以上
-- 例: `app-vUxi2Givn01MQgK3rZd51ytk`
+- 例: `app-hogehoge`
 
 **確認方法**:
 ```bash
