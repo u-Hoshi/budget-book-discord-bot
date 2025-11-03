@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -14,11 +15,64 @@ import (
 	"path/filepath"
 	"strings"
 	"syscall"
+	"time"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/disintegration/imaging"
 	"github.com/joho/godotenv"
 )
+
+// ヘルスチェック用のレスポンス構造体
+type HealthResponse struct {
+	Status    string    `json:"status"`
+	Timestamp time.Time `json:"timestamp"`
+	Version   string    `json:"version,omitempty"`
+	Uptime    string    `json:"uptime,omitempty"`
+}
+
+var startTime = time.Now()
+
+// ヘルスチェックエンドポイント
+func healthHandler(w http.ResponseWriter, r *http.Request) {
+	uptime := time.Since(startTime)
+
+	health := HealthResponse{
+		Status:    "ok",
+		Timestamp: time.Now(),
+		Version:   "1.0.0",
+		Uptime:    uptime.String(),
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusOK)
+	json.NewEncoder(w).Encode(health)
+}
+
+// HTTPサーバーを開始する関数
+func startHTTPServer() *http.Server {
+	mux := http.NewServeMux()
+	mux.HandleFunc("/", healthHandler)
+
+	// 環境変数からポートを取得（デフォルト: 8080）
+	port := os.Getenv("PORT")
+	if port == "" {
+		port = "8080"
+	}
+
+	server := &http.Server{
+		Addr:    ":" + port,
+		Handler: mux,
+	}
+
+	go func() {
+		log.Printf("🌐 HTTPサーバーを開始: ポート %s", port)
+		if err := server.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			log.Printf("HTTPサーバーエラー: %v", err)
+		}
+	}()
+
+	return server
+}
 
 // 文字列を指定した長さに切り詰める
 func truncateString(s string, maxLen int) string {
@@ -304,11 +358,27 @@ func main() {
 
 	defer dg.Close()
 
-	log.Println("Bot 起動中 Ctrl+Cで終了")
+	// HTTPサーバーを開始
+	httpServer := startHTTPServer()
+
+	log.Println("✅ Bot起動完了 - Ctrl+Cで終了")
 	stop := make(chan os.Signal, 1)
 	signal.Notify(stop, os.Interrupt, syscall.SIGTERM)
 	<-stop
-	log.Println("終了🍎")
+
+	log.Println("🔄 シャットダウン開始...")
+
+	// HTTPサーバーを graceful shutdown
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	if err := httpServer.Shutdown(ctx); err != nil {
+		log.Printf("HTTPサーバーのシャットダウンエラー: %v", err)
+	} else {
+		log.Println("✅ HTTPサーバーを正常に停止しました")
+	}
+
+	log.Println("✅ 終了完了")
 }
 
 // メッセージを受け取った時のイベントハンドラ

@@ -38,5 +38,8 @@ RUN chmod +x main
 # ユーザーを切り替え
 USER appuser
 
+# ポート8080を外部に公開
+EXPOSE 8080
+
 # アプリケーションを実行
 CMD ["./main"]
