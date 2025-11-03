@@ -252,21 +252,6 @@ func main() {
 	dg.Identify.Intents = discordgo.IntentsGuilds | discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
 
 	// メッセージ受信時のハンドラを追加
-	dg.AddHandler(func(s *discordgo.Session, m *discordgo.MessageCreate) {
-		if m.Author.Bot {
-			return
-		}
-		if m.Content == "!ping" {
-			_, _ = s.ChannelMessageSend(m.ChannelID, "Pong!")
-		}
-		// ユーザー情報を確認するコマンド
-		if m.Content == "!whoami" {
-			userInfo := fmt.Sprintf("👤 **あなたの情報**\n```\nユーザーID: %s\nユーザー名: %s\n表示名: %s\n```\n💡 この情報を使ってPayerを設定できます！",
-				m.Author.ID, m.Author.Username, m.Author.GlobalName)
-			_, _ = s.ChannelMessageSend(m.ChannelID, userInfo)
-		}
-	})
-
 	dg.AddHandler(onMessageCreate)
 
 	// スラッシュコマンドのハンドラ
@@ -388,6 +373,20 @@ func main() {
 func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	// 自分のメッセージは無視
 	if m.Author.ID == s.State.User.ID {
+		return
+	}
+
+	// !pingコマンド
+	if m.Content == "!ping" {
+		_, _ = s.ChannelMessageSend(m.ChannelID, "Pong!")
+		return
+	}
+
+	// !whoamiコマンド
+	if m.Content == "!whoami" {
+		userInfo := fmt.Sprintf("👤 **あなたの情報**\n```\nユーザーID: %s\nユーザー名: %s\n表示名: %s\n```\n💡 この情報を使ってPayerを設定できます！",
+			m.Author.ID, m.Author.Username, m.Author.GlobalName)
+		_, _ = s.ChannelMessageSend(m.ChannelID, userInfo)
 		return
 	}
 
