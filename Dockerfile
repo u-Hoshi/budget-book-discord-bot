@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.21-alpine AS builder
+FROM golang:1.24.5-alpine AS builder
 
 # セキュリティ更新とビルドに必要なパッケージをインストール
 RUN apk update && apk add --no-cache git ca-certificates tzdata
