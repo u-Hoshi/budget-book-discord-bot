@@ -1,0 +1,45 @@
+# Git関連
+.git
+.gitignore
+.gitattributes
+
+# ドキュメント
+README.md
+docs/
+*.md
+
+# ローカル設定
+.env
+.env.local
+.env.*.local
+
+# IDE/エディタ設定
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS生成ファイル
+.DS_Store
+Thumbs.db
+
+# ログファイル
+*.log
+
+# 一時ファイル
+*.tmp
+*.temp
+
+# テストファイル
+*_test.go
+
+# ビルド成果物
+main
+*.exe
+
+# Node.js (もしフロントエンドがある場合)
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
