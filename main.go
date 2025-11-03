@@ -158,8 +158,11 @@ func compressImage(inputPath string) (string, error) {
 		return inputPath, nil
 	}
 
+	// 一時ディレクトリ内のファイルパスに変更
+	tempInputPath := filepath.Join(os.TempDir(), filepath.Base(inputPath))
+
 	// 元のファイルサイズを取得
-	fileInfo, err := os.Stat(inputPath)
+	fileInfo, err := os.Stat(tempInputPath)
 	if err != nil {
 		log.Printf("❌ ファイル情報取得失敗: %v", err)
 		return "", fmt.Errorf("ファイル情報取得エラー: %v", err)
@@ -167,7 +170,7 @@ func compressImage(inputPath string) (string, error) {
 	originalSize := fileInfo.Size()
 
 	// 画像を読み込む
-	img, err := imaging.Open(inputPath)
+	img, err := imaging.Open(tempInputPath)
 	if err != nil {
 		log.Printf("❌ 画像読み込み失敗: %v", err)
 		return "", fmt.Errorf("画像読み込みエラー: %v", err)
@@ -186,10 +189,10 @@ func compressImage(inputPath string) (string, error) {
 		resizedImg = imaging.Resize(img, maxWidth, newHeight, imaging.Lanczos)
 	}
 
-	// 出力ファイル名を生成
-	ext := filepath.Ext(inputPath)
-	baseName := strings.TrimSuffix(inputPath, ext)
-	outputPath := baseName + "_compressed.jpg"
+	// 一時ディレクトリに出力ファイル名を生成
+	ext := filepath.Ext(tempInputPath)
+	baseName := strings.TrimSuffix(filepath.Base(tempInputPath), ext)
+	outputPath := filepath.Join(os.TempDir(), baseName+"_compressed.jpg")
 
 	// JPEGとして保存（品質指定）
 	err = imaging.Save(resizedImg, outputPath, imaging.JPEGQuality(quality))
@@ -412,18 +415,21 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
+		// 一時ディレクトリ内のファイルパスを取得
+		tempFilePath := filepath.Join(os.TempDir(), fileName)
+
 		// --- 画像を圧縮 ---
-		compressedFileName, err := compressImage(fileName)
+		compressedFileName, err := compressImage(tempFilePath)
 		if err != nil {
 			log.Printf("❌ 画像圧縮失敗: %v", err)
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ 画像の圧縮に失敗しました: %v", err))
-			os.Remove(fileName)
+			os.Remove(tempFilePath)
 			return
 		}
 
 		// 元の画像ファイルを削除（圧縮版を使用）
-		if compressedFileName != fileName {
-			os.Remove(fileName)
+		if compressedFileName != tempFilePath {
+			os.Remove(tempFilePath)
 		}
 
 		// --- Dify APIに送信 ---
@@ -487,9 +493,11 @@ func downloadImage(url, filename string) error {
 	}
 	defer resp.Body.Close()
 
-	out, err := os.Create(filename)
+	// 一時ディレクトリを使用
+	tempFile := filepath.Join(os.TempDir(), filename)
+	out, err := os.Create(tempFile)
 	if err != nil {
-		log.Printf("❌ ファイル作成失敗: %v", err)
+		log.Printf("❌ 一時ファイル作成失敗: %v", err)
 		return err
 	}
 	defer out.Close()
@@ -500,7 +508,7 @@ func downloadImage(url, filename string) error {
 		return err
 	}
 
-	return err
+	return nil
 }
 
 // DifyのレスポンスJSON構造体

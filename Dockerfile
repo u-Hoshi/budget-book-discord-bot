@@ -29,11 +29,17 @@ RUN adduser -D -s /bin/sh appuser
 # 作業ディレクトリを設定
 WORKDIR /app
 
+# 一時ディレクトリの権限を設定
+RUN mkdir -p /tmp && chmod 1777 /tmp
+
 # ビルドしたバイナリをコピー
 COPY --from=builder /app/main .
 
 # 実行権限を設定
 RUN chmod +x main
+
+# appuserに所有権を移譲
+RUN chown appuser:appuser /app/main
 
 # ユーザーを切り替え
 USER appuser
