@@ -86,7 +86,7 @@ func startHealthCheckCron() {
 		healthCheckURL = fmt.Sprintf("http://localhost:%s", port)
 	}
 
-	log.Printf("🕐 ヘルスチェックの定期実行を開始しました (30分間隔)")
+	log.Printf("🕐 ヘルスチェックの定期実行を開始しました (5分間隔)")
 	log.Printf("🔗 ヘルスチェックURL: %s", healthCheckURL)
 
 	// 初回ヘルスチェック（5秒後に実行）
@@ -95,8 +95,8 @@ func startHealthCheckCron() {
 		performHealthCheck(healthCheckURL)
 	}()
 
-	// 30分間隔のティッカーを作成
-	ticker := time.NewTicker(30 * time.Minute)
+	// 5分間隔のティッカーを作成
+	ticker := time.NewTicker(5 * time.Minute)
 
 	go func() {
 		defer ticker.Stop()
