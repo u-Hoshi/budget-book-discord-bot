@@ -481,7 +481,7 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			fileName := attachment.Filename
 
 			// 各画像の処理状況をログ出力
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("� [%d/%d] %s を処理中...", i+1, len(m.Attachments), fileName))
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("📸 [%d/%d] %s を処理中...", i+1, len(m.Attachments), fileName))
 
 			// 一時保存する場合（例: difyなどにPOST前にローカルで保持したい）
 			err := downloadImage(imageURL, fileName)
