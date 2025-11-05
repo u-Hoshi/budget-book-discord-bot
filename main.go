@@ -542,41 +542,39 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 					failureCount++
 				} else {
 					// 正常な結果を表示
-					if data, hasData := resultData["data"]; hasData {
-						// outputs.output配列から店舗・金額・項目を抽出
-						var store, item string
-						var amount int
-						var display string
-						if outputs, ok := resultData["outputs"].(map[string]interface{}); ok {
-							if outputArr, ok := outputs["output"].([]interface{}); ok && len(outputArr) > 0 {
-								// 1つ目の要素をJSONとしてパース
-								var outputObj map[string]interface{}
-								// outputArr[0]はstring型のJSON
-								if str, ok := outputArr[0].(string); ok {
-									if err := json.Unmarshal([]byte(str), &outputObj); err == nil {
-										if inserted, ok := outputObj["insertedData"].(map[string]interface{}); ok {
-											if v, ok := inserted["store"].(string); ok {
-												store = v
-											}
-											if v, ok := inserted["item"].(string); ok {
-												item = v
-											}
-											if v, ok := inserted["amount"].(float64); ok {
-												amount = int(v)
-											}
-											display = fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n店舗: %s\n金額: %d円\n項目: %s", i+1, len(m.Attachments), fileName, store, amount, item)
+					// outputs.output配列から店舗・金額・項目を抽出
+					var store, item string
+					var amount int
+					var display string
+
+					if outputs, ok := resultData["outputs"].(map[string]interface{}); ok {
+						if outputArr, ok := outputs["output"].([]interface{}); ok && len(outputArr) > 0 {
+							// 1つ目の要素をJSONとしてパース
+							var outputObj map[string]interface{}
+							// outputArr[0]はstring型のJSON
+							if str, ok := outputArr[0].(string); ok {
+								if err := json.Unmarshal([]byte(str), &outputObj); err == nil {
+									if inserted, ok := outputObj["insertedData"].(map[string]interface{}); ok {
+										if v, ok := inserted["store"].(string); ok {
+											store = v
 										}
+										if v, ok := inserted["item"].(string); ok {
+											item = v
+										}
+										if v, ok := inserted["amount"].(float64); ok {
+											amount = int(v)
+										}
+										display = fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n📍 店舗: %s\n💰 金額: %d円\n📝 項目: %s", i+1, len(m.Attachments), fileName, store, amount, item)
 									}
 								}
 							}
 						}
-						if display != "" {
-							s.ChannelMessageSend(m.ChannelID, display)
-						} else {
-							dataJSON, _ := json.MarshalIndent(data, "", "  ")
-							s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n```json\n%s\n```", i+1, len(m.Attachments), fileName, truncateString(string(dataJSON), 1200)))
-						}
+					}
+
+					if display != "" {
+						s.ChannelMessageSend(m.ChannelID, display)
 					} else {
+						// パースできない場合は生のJSONを表示
 						s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n```json\n%s\n```", i+1, len(m.Attachments), fileName, truncateString(result, 1200)))
 					}
 					successCount++
