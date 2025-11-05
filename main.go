@@ -542,29 +542,32 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 					failureCount++
 				} else {
 					// 正常な結果を表示
-					// outputs.output配列から店舗・金額・項目を抽出
+					// data.outputs.output配列から店舗・金額・項目を抽出
 					var store, item string
 					var amount int
 					var display string
 
-					if outputs, ok := resultData["outputs"].(map[string]interface{}); ok {
-						if outputArr, ok := outputs["output"].([]interface{}); ok && len(outputArr) > 0 {
-							// 1つ目の要素をJSONとしてパース
-							var outputObj map[string]interface{}
-							// outputArr[0]はstring型のJSON
-							if str, ok := outputArr[0].(string); ok {
-								if err := json.Unmarshal([]byte(str), &outputObj); err == nil {
-									if inserted, ok := outputObj["insertedData"].(map[string]interface{}); ok {
-										if v, ok := inserted["store"].(string); ok {
-											store = v
+					// resultData["data"]["outputs"]["output"][0] を取得
+					if data, ok := resultData["data"].(map[string]interface{}); ok {
+						if outputs, ok := data["outputs"].(map[string]interface{}); ok {
+							if outputArr, ok := outputs["output"].([]interface{}); ok && len(outputArr) > 0 {
+								// 1つ目の要素をJSONとしてパース
+								var outputObj map[string]interface{}
+								// outputArr[0]はstring型のJSON
+								if str, ok := outputArr[0].(string); ok {
+									if err := json.Unmarshal([]byte(str), &outputObj); err == nil {
+										if inserted, ok := outputObj["insertedData"].(map[string]interface{}); ok {
+											if v, ok := inserted["store"].(string); ok {
+												store = v
+											}
+											if v, ok := inserted["item"].(string); ok {
+												item = v
+											}
+											if v, ok := inserted["amount"].(float64); ok {
+												amount = int(v)
+											}
+											display = fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n📍 店舗: %s\n💰 金額: %d円\n📝 項目: %s", i+1, len(m.Attachments), fileName, store, amount, item)
 										}
-										if v, ok := inserted["item"].(string); ok {
-											item = v
-										}
-										if v, ok := inserted["amount"].(float64); ok {
-											amount = int(v)
-										}
-										display = fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n📍 店舗: %s\n💰 金額: %d円\n📝 項目: %s", i+1, len(m.Attachments), fileName, store, amount, item)
 									}
 								}
 							}
