@@ -463,95 +463,127 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		return
 	}
 
-	log.Printf("📷 画像アップロード処理開始 - User: %s", m.Author.Username)
+	// 添付ファイルがある（＝画像などが投稿された）
+	if len(m.Attachments) > 0 {
+		log.Printf("📷 画像アップロード処理開始 - User: %s, 画像数: %d", m.Author.Username, len(m.Attachments))
 
-	if len(m.Attachments) == 0 {
-		s.ChannelMessageSend(m.ChannelID, "画像を添付してください📎")
-		return
-	}
+		// 処理開始メッセージ
+		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🖼️ %d個の画像を処理中です...", len(m.Attachments)))
 
-	attachment := m.Attachments[0] // 最初の添付ファイルを取得
-	imageURL := attachment.URL
-	fileName := attachment.Filename
+		// 全ての添付ファイルを処理
+		successCount := 0
+		failureCount := 0
 
-	// 処理開始メッセージ
-	s.ChannelMessageSend(m.ChannelID, "🖼️ 画像を処理中です...")
+		for i, attachment := range m.Attachments {
+			log.Printf("📎 [%d/%d] 処理中: %s", i+1, len(m.Attachments), attachment.Filename)
 
-	// 一時保存する場合（例: difyなどにPOST前にローカルで保持したい）
-	err := downloadImage(imageURL, fileName)
-	if err != nil {
-		log.Printf("❌ 画像ダウンロード失敗: %v", err)
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ 画像のダウンロードに失敗しました: %v", err))
-		return
-	}
+			imageURL := attachment.URL
+			fileName := attachment.Filename
 
-	// 一時ディレクトリ内のファイルパスを取得
-	tempFilePath := filepath.Join(os.TempDir(), fileName)
+			// 各画像の処理状況をログ出力
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("� [%d/%d] %s を処理中...", i+1, len(m.Attachments), fileName))
 
-	// --- 画像を圧縮 ---
-	compressedFileName, err := compressImage(tempFilePath)
-	if err != nil {
-		log.Printf("❌ 画像圧縮失敗: %v", err)
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ 画像の圧縮に失敗しました: %v", err))
-		os.Remove(tempFilePath)
-		return
-	}
+			// 一時保存する場合（例: difyなどにPOST前にローカルで保持したい）
+			err := downloadImage(imageURL, fileName)
+			if err != nil {
+				log.Printf("❌ [%d/%d] 画像ダウンロード失敗 (%s): %v", i+1, len(m.Attachments), fileName, err)
+				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ [%d/%d] %s のダウンロードに失敗しました: %v", i+1, len(m.Attachments), fileName, err))
+				failureCount++
+				continue
+			}
 
-	// 元の画像ファイルを削除（圧縮版を使用）
-	if compressedFileName != tempFilePath {
-		os.Remove(tempFilePath)
-	}
+			// 一時ディレクトリ内のファイルパスを取得
+			tempFilePath := filepath.Join(os.TempDir(), fileName)
 
-	// --- Dify APIに送信 ---
-	// 1. 画像をDifyにアップロード
-	fileID, err := uploadImageToDify(compressedFileName)
-	if err != nil {
-		log.Printf("❌ Difyアップロード失敗: %v", err)
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ Difyへのアップロードに失敗しました: %v", err))
-		os.Remove(compressedFileName)
-		return
-	}
+			// --- 画像を圧縮 ---
+			compressedFileName, err := compressImage(tempFilePath)
+			if err != nil {
+				log.Printf("❌ [%d/%d] 画像圧縮失敗 (%s): %v", i+1, len(m.Attachments), fileName, err)
+				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ [%d/%d] %s の圧縮に失敗しました: %v", i+1, len(m.Attachments), fileName, err))
+				os.Remove(tempFilePath)
+				failureCount++
+				continue
+			}
 
-	// 2. ワークフローを実行（画像を使用）
-	result, err := runDifyWorkflowWithImage(fileID, m.Author.ID, m.Author.Username)
-	if err != nil {
-		log.Printf("❌ Difyワークフロー実行失敗: %v", err)
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ Dify処理に失敗しました: %v", err))
-		os.Remove(compressedFileName)
-		return
-	}
+			// 元の画像ファイルを削除（圧縮版を使用）
+			if compressedFileName != tempFilePath {
+				os.Remove(tempFilePath)
+			}
 
-	// 成功メッセージ
-	// レスポンスをパースして結果を整形
-	var resultData map[string]interface{}
-	if err := json.Unmarshal([]byte(result), &resultData); err == nil {
-		// エラーがあるかチェック
-		if errorMsg, hasError := resultData["error"]; hasError {
-			errorStr := fmt.Sprintf("%v", errorMsg)
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ Difyワークフローは実行されましたが、内部でエラーが発生しました。\n```\n%s\n```\n詳細はBotのログを確認してください。", truncateString(errorStr, 1000)))
-		} else {
-			// 正常な結果を表示
-			if data, hasData := resultData["data"]; hasData {
-				dataJSON, _ := json.MarshalIndent(data, "", "  ")
-				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ Dify処理が完了しました！\n```json\n%s\n```", truncateString(string(dataJSON), 1500)))
+			// --- Dify APIに送信 ---
+			// 1. 画像をDifyにアップロード
+			fileID, err := uploadImageToDify(compressedFileName)
+			if err != nil {
+				log.Printf("❌ [%d/%d] Difyアップロード失敗 (%s): %v", i+1, len(m.Attachments), fileName, err)
+				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ [%d/%d] %s のDifyアップロードに失敗しました: %v", i+1, len(m.Attachments), fileName, err))
+				os.Remove(compressedFileName)
+				failureCount++
+				continue
+			}
+
+			// 2. ワークフローを実行（画像を使用）
+			result, err := runDifyWorkflowWithImage(fileID, m.Author.ID, m.Author.Username)
+			if err != nil {
+				log.Printf("❌ [%d/%d] Difyワークフロー実行失敗 (%s): %v", i+1, len(m.Attachments), fileName, err)
+				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ [%d/%d] %s のDify処理に失敗しました: %v", i+1, len(m.Attachments), fileName, err))
+				os.Remove(compressedFileName)
+				failureCount++
+				continue
+			}
+
+			// 成功メッセージ
+			// レスポンスをパースして結果を整形
+			var resultData map[string]interface{}
+			if err := json.Unmarshal([]byte(result), &resultData); err == nil {
+				// エラーがあるかチェック
+				if errorMsg, hasError := resultData["error"]; hasError {
+					errorStr := fmt.Sprintf("%v", errorMsg)
+					s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ [%d/%d] %s: Difyワークフローは実行されましたが、内部でエラーが発生しました。\n```\n%s\n```", i+1, len(m.Attachments), fileName, truncateString(errorStr, 800)))
+					failureCount++
+				} else {
+					// 正常な結果を表示
+					if data, hasData := resultData["data"]; hasData {
+						dataJSON, _ := json.MarshalIndent(data, "", "  ")
+						s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n```json\n%s\n```", i+1, len(m.Attachments), fileName, truncateString(string(dataJSON), 1200)))
+					} else {
+						s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n```json\n%s\n```", i+1, len(m.Attachments), fileName, truncateString(result, 1200)))
+					}
+					successCount++
+				}
 			} else {
-				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ Dify処理が完了しました！\n```json\n%s\n```", truncateString(result, 1500)))
+				// JSONパースできない場合はそのまま表示
+				s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n```\n%s\n```", i+1, len(m.Attachments), fileName, truncateString(result, 1200)))
+				successCount++
+			}
+
+			// 一時ファイルを削除
+			err = os.Remove(compressedFileName)
+			if err != nil {
+				log.Printf("⚠️ [%d/%d] 一時ファイルの削除に失敗 (%s): %v", i+1, len(m.Attachments), fileName, err)
+			}
+
+			log.Printf("✅ [%d/%d] 画像処理が完了しました: %s", i+1, len(m.Attachments), fileName)
+
+			// 複数画像処理時は適度に間隔を空ける（最後の画像以外）
+			if i < len(m.Attachments)-1 {
+				time.Sleep(2 * time.Second)
+				log.Printf("⏱️ 次の画像処理まで2秒待機...")
 			}
 		}
-	} else {
-		// JSONパースできない場合はそのまま表示
-		s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ Dify処理が完了しました！\n```\n%s\n```", truncateString(result, 1500)))
-	}
 
-	// 一時ファイルを削除
-	err = os.Remove(compressedFileName)
-	if err != nil {
-		log.Printf("⚠️  一時ファイルの削除に失敗: %v", err)
-	}
+		// 全体の処理結果をサマリー表示
+		totalImages := len(m.Attachments)
+		if successCount == totalImages {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🎉 全ての画像処理が完了しました！\n✅ 成功: %d個\n❌ 失敗: %d個", successCount, failureCount))
+		} else if successCount > 0 {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ 一部の画像処理が完了しました。\n✅ 成功: %d個\n❌ 失敗: %d個", successCount, failureCount))
+		} else {
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("❌ 全ての画像処理が失敗しました。\n✅ 成功: %d個\n❌ 失敗: %d個", successCount, failureCount))
+		}
 
-	log.Printf("✅ 画像処理が正常に完了しました")
-	// ---------------------------------
-	// }
+		log.Printf("📊 画像処理サマリー - 成功: %d, 失敗: %d, 合計: %d", successCount, failureCount, totalImages)
+		// ---------------------------------
+	}
 }
 
 // 添付画像をローカルに保存する関数
