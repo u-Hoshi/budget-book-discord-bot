@@ -606,7 +606,7 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 		// 全体の処理結果をサマリー表示
 		totalImages := len(m.Attachments)
 		if successCount == totalImages {
-			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🎉 全ての画像処理が完了しました！\n✅ 成功: %d個\n❌ 失敗: %d個", successCount, failureCount))
+			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("🎉 全ての画像処理が完了しました！\n✅ 成功: %d個\n", successCount))
 		} else if successCount > 0 {
 			s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("⚠️ 一部の画像処理が完了しました。\n✅ 成功: %d個\n❌ 失敗: %d個", successCount, failureCount))
 		} else {
