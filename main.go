@@ -125,29 +125,7 @@ func performHealthCheck(url string) {
 	defer resp.Body.Close()
 
 	if resp.StatusCode == http.StatusOK {
-                        // outputs.output配列から1つ目の要素をパース
-                        var store, item string
-                        var amount int
-                        var display string
-                        if outputs, ok := resultData["outputs"].(map[string]interface{}); ok {
-                            if outputArr, ok := outputs["output"].([]interface{}); ok && len(outputArr) > 0 {
-                                // 1つ目の要素をJSONとしてパース
-                                var outputObj map[string]interface{}
-                                if err := json.Unmarshal([]byte(fmt.Sprintf("%v", outputArr[0])), &outputObj); err == nil {
-                                    if inserted, ok := outputObj["insertedData"].(map[string]interface{}); ok {
-                                        if v, ok := inserted["store"].(string); ok { store = v }
-                                        if v, ok := inserted["item"].(string); ok { item = v }
-                                        if v, ok := inserted["amount"].(float64); ok { amount = int(v) }
-                                        display = fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n店舗: %s\n金額: %d円\n項目: %s", i+1, len(m.Attachments), fileName, store, amount, item)
-                                    }
-                                }
-                            }
-                        }
-                        if display != "" {
-                            s.ChannelMessageSend(m.ChannelID, display)
-                        } else {
-                            s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n```json\n%s\n```", i+1, len(m.Attachments), fileName, truncateString(string(dataJSON), 1200)))
-                        }
+		log.Printf("✅ [%s] ヘルスチェック成功: %d", now, resp.StatusCode)
 	} else {
 		log.Printf("⚠️ [%s] ヘルスチェック失敗: %d", now, resp.StatusCode)
 	}
@@ -213,38 +191,35 @@ func getPayerFromDiscordUser(userID, username string) string {
 	return "S"
 }
 
-					// 正常な結果を表示
-					if data, hasData := resultData["data"]; hasData {
-						// outputs.output配列から1つ目の要素をパース
-						var store, item string
-						var amount int
-						var display string
-						if outputs, ok := resultData["outputs"].(map[string]interface{}); ok {
-							if outputArr, ok := outputs["output"].([]interface{}); ok && len(outputArr) > 0 {
-								// 1つ目の要素をJSONとしてパース
-								var outputObj map[string]interface{}
-								// outputArr[0]はstring型のJSON
-								if str, ok := outputArr[0].(string); ok {
-									if err := json.Unmarshal([]byte(str), &outputObj); err == nil {
-										if inserted, ok := outputObj["insertedData"].(map[string]interface{}); ok {
-											if v, ok := inserted["store"].(string); ok { store = v }
-											if v, ok := inserted["item"].(string); ok { item = v }
-											if v, ok := inserted["amount"].(float64); ok { amount = int(v) }
-											display = fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n店舗: %s\n金額: %d円\n項目: %s", i+1, len(m.Attachments), fileName, store, amount, item)
-										}
-									}
-								}
-							}
-						}
-						if display != "" {
-							s.ChannelMessageSend(m.ChannelID, display)
-						} else {
-							dataJSON, _ := json.MarshalIndent(data, "", "  ")
-							s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n```json\n%s\n```", i+1, len(m.Attachments), fileName, truncateString(string(dataJSON), 1200)))
-						}
-					} else {
-						// ...existing code...
-					}
+// 画像を圧縮する関数
+func compressImage(inputPath string) (string, error) {
+	// 環境変数から設定を読み込み（デフォルト値あり）
+	maxWidth := 1500
+	quality := 85
+	enableCompression := true
+
+	if width := os.Getenv("IMAGE_MAX_WIDTH"); width != "" {
+		fmt.Sscanf(width, "%d", &maxWidth)
+	}
+	if qual := os.Getenv("IMAGE_QUALITY"); qual != "" {
+		fmt.Sscanf(qual, "%d", &quality)
+	}
+	if enable := os.Getenv("ENABLE_COMPRESSION"); enable == "false" {
+		enableCompression = false
+	}
+
+	// 圧縮が無効の場合は元のファイルをそのまま返す
+	if !enableCompression {
+		return inputPath, nil
+	}
+
+	// 一時ディレクトリ内のファイルパスに変更
+	tempInputPath := filepath.Join(os.TempDir(), filepath.Base(inputPath))
+
+	// 元のファイルサイズを取得
+	fileInfo, err := os.Stat(tempInputPath)
+	if err != nil {
+		log.Printf("❌ ファイル情報取得失敗: %v", err)
 		return "", fmt.Errorf("ファイル情報取得エラー: %v", err)
 	}
 	originalSize := fileInfo.Size()
@@ -568,8 +543,39 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 				} else {
 					// 正常な結果を表示
 					if data, hasData := resultData["data"]; hasData {
-						dataJSON, _ := json.MarshalIndent(data, "", "  ")
-						s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n```json\n%s\n```", i+1, len(m.Attachments), fileName, truncateString(string(dataJSON), 1200)))
+						// outputs.output配列から店舗・金額・項目を抽出
+						var store, item string
+						var amount int
+						var display string
+						if outputs, ok := resultData["outputs"].(map[string]interface{}); ok {
+							if outputArr, ok := outputs["output"].([]interface{}); ok && len(outputArr) > 0 {
+								// 1つ目の要素をJSONとしてパース
+								var outputObj map[string]interface{}
+								// outputArr[0]はstring型のJSON
+								if str, ok := outputArr[0].(string); ok {
+									if err := json.Unmarshal([]byte(str), &outputObj); err == nil {
+										if inserted, ok := outputObj["insertedData"].(map[string]interface{}); ok {
+											if v, ok := inserted["store"].(string); ok {
+												store = v
+											}
+											if v, ok := inserted["item"].(string); ok {
+												item = v
+											}
+											if v, ok := inserted["amount"].(float64); ok {
+												amount = int(v)
+											}
+											display = fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n店舗: %s\n金額: %d円\n項目: %s", i+1, len(m.Attachments), fileName, store, amount, item)
+										}
+									}
+								}
+							}
+						}
+						if display != "" {
+							s.ChannelMessageSend(m.ChannelID, display)
+						} else {
+							dataJSON, _ := json.MarshalIndent(data, "", "  ")
+							s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n```json\n%s\n```", i+1, len(m.Attachments), fileName, truncateString(string(dataJSON), 1200)))
+						}
 					} else {
 						s.ChannelMessageSend(m.ChannelID, fmt.Sprintf("✅ [%d/%d] %s: Dify処理が完了しました！\n```json\n%s\n```", i+1, len(m.Attachments), fileName, truncateString(result, 1200)))
 					}
