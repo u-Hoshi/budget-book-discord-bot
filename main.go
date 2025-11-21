@@ -137,6 +137,42 @@ func truncateString(s string, maxLen int) string {
 	return s[:maxLen] + "...(省略)"
 }
 
+// 金額にカンマを追加する関数（例: "食費：31828" -> "食費：31,828"）
+func formatAmountWithComma(s string) string {
+	// "項目：金額"の形式を分割
+	parts := strings.Split(s, "：")
+	if len(parts) != 2 {
+		return s // 形式が異なる場合はそのまま返す
+	}
+
+	category := parts[0]
+	amountStr := strings.TrimSpace(parts[1])
+
+	// 金額が空の場合はそのまま返す
+	if amountStr == "" {
+		return s
+	}
+
+	// 数値以外が含まれている場合はそのまま返す
+	for _, c := range amountStr {
+		if c < '0' || c > '9' {
+			return s
+		}
+	}
+
+	// 3桁ごとにカンマを挿入
+	var result strings.Builder
+	n := len(amountStr)
+	for i, digit := range amountStr {
+		if i > 0 && (n-i)%3 == 0 {
+			result.WriteString(",")
+		}
+		result.WriteRune(digit)
+	}
+
+	return category + "：" + result.String()
+}
+
 // ファイル名からMIME typeを判定する
 func getMimeType(filename string) string {
 	ext := strings.ToLower(filepath.Ext(filename))
@@ -495,11 +531,13 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		// Discordメッセージを作成
+		// Discordメッセージを作成（金額にカンマを追加）
 		var message strings.Builder
-		message.WriteString(fmt.Sprintf("� **%sの記録**\n```\n", result.CurrentMonth))
+		message.WriteString(fmt.Sprintf("**%sの記録**\n```\n", result.CurrentMonth))
 		for _, item := range result.Data {
-			message.WriteString(item + "\n")
+			// 金額にカンマを追加する処理
+			formattedItem := formatAmountWithComma(item)
+			message.WriteString(formattedItem + "\n")
 		}
 		message.WriteString("```")
 
@@ -510,7 +548,7 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 			return
 		}
 
-		log.Printf("�🔔 いくらコマンド実行成功 - UserID: %s", m.Author.ID)
+		log.Printf("� いくらコマンド実行成功 - UserID: %s", m.Author.ID)
 		return
 	}
 
@@ -730,7 +768,7 @@ type DifyWorkflowResponse struct {
 
 // 画像をDifyにアップロードする関数
 func uploadImageToDify(filename string) (string, error) {
-	log.Printf("� Difyへのアップロード開始: %s", filename)
+	log.Printf("Difyへのアップロード開始: %s", filename)
 
 	difyToken := os.Getenv("DIFY_API_KEY")
 	// DIFY_ENDPOINTとDIFY_API_URLの両方をサポート（後方互換性）
