@@ -170,7 +170,9 @@ func getMimeType(filename string) string {
 
 // DiscordユーザーIDまたはユーザー名からpayerを判定する関数
 func getPayerFromDiscordUser(userID, username string) string {
+	
 	// ユーザーIDで判定（優先）
+	/*
 	switch userID {
 	case "123456789012345678": // 例: ユーザーAのID
 		return "S"
@@ -186,6 +188,7 @@ func getPayerFromDiscordUser(userID, username string) string {
 	case "hoshi7hoshi":
 		return "Y"
 	}
+		*/
 
 	// デフォルト値
 	log.Printf("未登録ユーザー（ID: %s, Username: %s） -> デフォルトPayer: S", userID, username)
