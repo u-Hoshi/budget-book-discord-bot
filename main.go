@@ -170,9 +170,8 @@ func getMimeType(filename string) string {
 
 // DiscordユーザーIDまたはユーザー名からpayerを判定する関数
 func getPayerFromDiscordUser(userID, username string) string {
-	
+
 	// ユーザーIDで判定（優先）
-	/*
 	switch userID {
 	case "123456789012345678": // 例: ユーザーAのID
 		return "S"
@@ -188,7 +187,6 @@ func getPayerFromDiscordUser(userID, username string) string {
 	case "hoshi7hoshi":
 		return "Y"
 	}
-		*/
 
 	// デフォルト値
 	log.Printf("未登録ユーザー（ID: %s, Username: %s） -> デフォルトPayer: S", userID, username)
@@ -454,6 +452,65 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 		// ログにも出力
 		log.Printf("📋 !whoami実行 - UserID: %s, Username: %s, Payer: %s", m.Author.ID, m.Author.Username, currentPayer)
+		return
+	}
+
+	// いくらコマンド
+	if m.Content == "いくら" {
+		// gasのurlを叩いて情報を取得し結果を返す。リクエストボディにパラメーターとしてaction:"get_latest_amount"を含める
+
+		url := os.Getenv("GAS_ENDPOINT")
+		data := `{"action":"get_latest_amount"}`
+
+		bodyReader := strings.NewReader(data)
+
+		resp, err := http.Post(url, "application/json", bodyReader)
+		if err != nil {
+			log.Printf("❌ POSTリクエストの送信中にエラーが発生しました: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "❌ データの取得に失敗しました")
+			return
+		}
+		defer resp.Body.Close() // レスポンスボディを必ずクローズする
+
+		// レスポンスボディを読み取る
+		respBody, err := io.ReadAll(resp.Body)
+		if err != nil {
+			log.Printf("❌ レスポンス読み取り失敗: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "❌ データの読み取りに失敗しました")
+			return
+		}
+
+		// JSONをパース
+		var result struct {
+			Status       string   `json:"status"`
+			Count        int      `json:"count"`
+			CurrentMonth string   `json:"currentMonth"`
+			Data         []string `json:"data"`
+		}
+
+		err = json.Unmarshal(respBody, &result)
+		if err != nil {
+			log.Printf("❌ JSONパース失敗: %v", err)
+			s.ChannelMessageSend(m.ChannelID, "❌ データの解析に失敗しました")
+			return
+		}
+
+		// Discordメッセージを作成
+		var message strings.Builder
+		message.WriteString(fmt.Sprintf("� **%sの記録**\n```\n", result.CurrentMonth))
+		for _, item := range result.Data {
+			message.WriteString(item + "\n")
+		}
+		message.WriteString("```")
+
+		// Discordに送信
+		_, err = s.ChannelMessageSend(m.ChannelID, message.String())
+		if err != nil {
+			log.Printf("❌ メッセージ送信失敗: %v", err)
+			return
+		}
+
+		log.Printf("�🔔 いくらコマンド実行成功 - UserID: %s", m.Author.ID)
 		return
 	}
 
