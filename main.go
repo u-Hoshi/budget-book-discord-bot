@@ -442,9 +442,14 @@ func onMessageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 
 	// !whoamiコマンド
 	if m.Content == "!whoami" {
-		userInfo := fmt.Sprintf("👤 **あなたの情報**\n```\nユーザーID: %s\nユーザー名: %s\n表示名: %s\n```\n💡 この情報を使ってPayerを設定できます！",
-			m.Author.ID, m.Author.Username, m.Author.GlobalName)
+		// 現在のPayer判定結果も表示
+		currentPayer := getPayerFromDiscordUser(m.Author.ID, m.Author.Username)
+		userInfo := fmt.Sprintf("👤 **あなたの情報**\n```\nユーザーID: %s\nユーザー名: %s\n表示名: %s\n現在のPayer: %s\n```\n💡 この情報を使ってPayerを設定できます！",
+			m.Author.ID, m.Author.Username, m.Author.GlobalName, currentPayer)
 		_, _ = s.ChannelMessageSend(m.ChannelID, userInfo)
+
+		// ログにも出力
+		log.Printf("📋 !whoami実行 - UserID: %s, Username: %s, Payer: %s", m.Author.ID, m.Author.Username, currentPayer)
 		return
 	}
 
@@ -783,7 +788,7 @@ func uploadImageToDify(filename string) (string, error) {
 
 // DifyのワークフローまたはチャットBotに画像を送信して処理を実行する関数
 func runDifyWorkflowWithImage(fileID, userID, username string) (string, error) {
-	log.Printf("� Difyワークフロー実行開始 - UserID: %s", userID)
+	log.Printf("🚀 Difyワークフロー実行開始 - UserID: %s, Username: %s, FileID: %s", userID, username, fileID)
 
 	difyToken := os.Getenv("DIFY_API_KEY")
 	// DIFY_ENDPOINTとDIFY_API_URLの両方をサポート（後方互換性）
@@ -820,11 +825,12 @@ func runDifyWorkflowWithImage(fileID, userID, username string) (string, error) {
 
 	// DiscordユーザーからPayerを判定
 	payer := getPayerFromDiscordUser(userID, username)
+	log.Printf("🔑 判定されたPayer: %s (UserID: %s, Username: %s)", payer, userID, username)
 
 	requestBody := map[string]interface{}{
 		"inputs": map[string]interface{}{
-			difyInputName: []interface{}{imageData},   // 配列形式で送信
-			"payer":       fmt.Sprintf(`"%s"`, payer), // ユーザーに応じたpayer値
+			difyInputName: []interface{}{imageData}, // 配列形式で送信
+			"payer":       payer,                    // 文字列として直接送信（二重引用符を削除）
 		},
 		"response_mode": "blocking", // または "streaming"
 		"user":          "discord-bot-user",
@@ -835,6 +841,9 @@ func runDifyWorkflowWithImage(fileID, userID, username string) (string, error) {
 		log.Printf("❌ JSONマーシャル失敗: %v", err)
 		return "", fmt.Errorf("JSONマーシャルエラー: %v", err)
 	}
+
+	// デバッグ用: 送信するJSONをログ出力
+	log.Printf("📤 Difyへ送信するJSON: %s", string(jsonData))
 
 	// APIエンドポイントを決定
 	var apiURL string
@@ -873,11 +882,17 @@ func runDifyWorkflowWithImage(fileID, userID, username string) (string, error) {
 	}
 
 	if resp.StatusCode != http.StatusOK && resp.StatusCode != http.StatusCreated {
-		log.Printf("❌ ワークフロー実行失敗 - ステータス: %d", resp.StatusCode)
+		log.Printf("❌ ワークフロー実行失敗 - ステータス: %d, UserID: %s, Payer: %s", resp.StatusCode, userID, getPayerFromDiscordUser(userID, username))
+		log.Printf("📥 Difyからのエラーレスポンス: %s", string(respBody))
 
 		// 400エラーの場合は入力パラメータの問題を指摘
 		if resp.StatusCode == 400 {
 			log.Printf("リクエストパラメータエラー: Difyワークフローの設定を確認してください")
+		}
+
+		// 500エラーの場合はDifyサーバー側の問題を指摘
+		if resp.StatusCode == 500 {
+			log.Printf("⚠️  Difyサーバー内部エラー: ワークフロー内のロジックやプラグインを確認してください")
 		}
 
 		return "", fmt.Errorf("ワークフロー実行失敗 (ステータス: %d): %s", resp.StatusCode, string(respBody))
