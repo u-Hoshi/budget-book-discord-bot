@@ -171,7 +171,6 @@ func getMimeType(filename string) string {
 // DiscordユーザーIDまたはユーザー名からpayerを判定する関数
 func getPayerFromDiscordUser(userID, username string) string {
 	// ユーザーIDで判定（優先）
-	/* デバックように一時コメントアウト
 	switch userID {
 	case "123456789012345678": // 例: ユーザーAのID
 		return "S"
@@ -187,7 +186,6 @@ func getPayerFromDiscordUser(userID, username string) string {
 	case "hoshi7hoshi":
 		return "Y"
 	}
-	*/
 
 	// デフォルト値
 	log.Printf("未登録ユーザー（ID: %s, Username: %s） -> デフォルトPayer: S", userID, username)
@@ -830,13 +828,10 @@ func runDifyWorkflowWithImage(fileID, userID, username string) (string, error) {
 	payer := getPayerFromDiscordUser(userID, username)
 	log.Printf("🔑 判定されたPayer: %s (UserID: %s, Username: %s)", payer, userID, username)
 
-	// Difyワークフローが期待する形式: "\"Y\"" または "\"S\""（エスケープされた二重引用符付き文字列）
-	payerValue := fmt.Sprintf(`"%s"`, payer)
-
 	requestBody := map[string]interface{}{
 		"inputs": map[string]interface{}{
 			difyInputName: []interface{}{imageData}, // 配列形式で送信
-			"payer":       payerValue,               // エスケープされた形式で送信
+			"payer":       payer,                    // "Y" または "S" を直接送信
 		},
 		"response_mode": "blocking", // または "streaming"
 		"user":          "discord-bot-user",
