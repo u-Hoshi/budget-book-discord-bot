@@ -830,10 +830,13 @@ func runDifyWorkflowWithImage(fileID, userID, username string) (string, error) {
 	payer := getPayerFromDiscordUser(userID, username)
 	log.Printf("🔑 判定されたPayer: %s (UserID: %s, Username: %s)", payer, userID, username)
 
+	// Difyワークフローが期待する形式: "\"Y\"" または "\"S\""（エスケープされた二重引用符付き文字列）
+	payerValue := fmt.Sprintf(`"%s"`, payer)
+
 	requestBody := map[string]interface{}{
 		"inputs": map[string]interface{}{
 			difyInputName: []interface{}{imageData}, // 配列形式で送信
-			"payer":       payer,                    // 文字列として直接送信（二重引用符を削除）
+			"payer":       payerValue,               // エスケープされた形式で送信
 		},
 		"response_mode": "blocking", // または "streaming"
 		"user":          "discord-bot-user",
