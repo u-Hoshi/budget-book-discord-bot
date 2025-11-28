@@ -22,8 +22,7 @@ Discord Bot × AI（Dify） × Google Spreadsheet を組み合わせた、完全
 
 このプロジェクトについて、コミュニティで発表を行いました。
 
-![スライドタイトル](/images/slide-title.png)
-
+[![スライドタイトル](/images/slide-title.png)](https://speakerdeck.com/u_hoshi/dify-xspreadsheetsdezuo-rujia-ji-bo-turu)
 
 📊 [発表スライド](https://speakerdeck.com/u_hoshi/dify-xspreadsheetsdezuo-rujia-ji-bo-turu)
 
@@ -31,7 +30,7 @@ Discord Bot × AI（Dify） × Google Spreadsheet を組み合わせた、完全
 
 ## 🏗️ システム構成
 
-![システム構成図](/images/system-architecture.png)
+[![システム構成図](/images/system-architecture.png)](https://speakerdeck.com/u_hoshi/dify-xspreadsheetsdezuo-rujia-ji-bo-turu?slide=12)
 
 ## ✨ 主な機能
 
@@ -59,7 +58,7 @@ Discord Bot × AI（Dify） × Google Spreadsheet を組み合わせた、完全
 |---------|-----|
 | **言語** | Go 1.24.5 |
 | **Bot Framework** | discordgo |
-| **AI/画像解析** | Dify (GPT-4 Vision) |
+| **AI/画像解析** | Dify (gemini) |
 | **データ保存** | Google Spreadsheet |
 | **中間処理** | Google Apps Script |
 | **ホスティング** | Koyeb (or Docker) |
@@ -123,21 +122,8 @@ go run main.go
 
 結果として、**家計簿の記録を継続できるようになりました**。
 
-## 🔐 セキュリティ
-
-- `.env` ファイルは Git にコミットしない
-- Discord Token、API Key は第三者に漏らさない
-- 本番環境では環境変数を適切に管理
 
 ## 📝 ライセンス
 
 このプロジェクトは個人利用目的で開発されました。
 
-## 👤 作者
-
-**u-Hoshi**
-- GitHub: [@u-Hoshi](https://github.com/u-Hoshi)
-
-## 🤝 コントリビューション
-
-バグ報告や機能追加の提案は Issues でお願いします。
