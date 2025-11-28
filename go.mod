@@ -1,4 +1,4 @@
-module test/discord-bot
+module github.com/u-Hoshi/budget-book-discord-bot
 
 go 1.24.5
 
