@@ -1,193 +1,143 @@
-# Discord Bot with Dify Integration
+# Budget Book Discord Bot
 
-Discord上で画像を受け取り、Difyに送信して処理するBotです。
+**レシート画像を撮ってDiscordに投稿するだけで、自動的に家計簿に記録される**
 
-## 📋 必要な準備
+Discord Bot × AI（Dify） × Google Spreadsheet を組み合わせた、完全自動化家計簿システムです。
 
-### 1. Go言語のインストール
-- Go 1.24.5以上が必要です
+[![Go](https://img.shields.io/badge/Go-1.24.5-00ADD8?logo=go)](https://go.dev/)
+[![Discord](https://img.shields.io/badge/Discord-Bot-5865F2?logo=discord&logoColor=white)](https://discord.com/)
+[![Dify](https://img.shields.io/badge/Dify-AI-FF6B00)](https://dify.ai/)
 
-### 2. Discord Bot の作成
-1. [Discord Developer Portal](https://discord.com/developers/applications)にアクセス
-2. 新しいApplicationを作成
-3. Botタブから`APPLICATION_ID`, `PUBLIC_KEY`, `DISCORD_TOKEN`を取得
-4. Bot Permissionsで以下を有効化：
-   - `Send Messages`
-   - `Read Messages/View Channels`
-   - `Read Message History`
-   - `Attach Files`
-5. OAuth2 URLでBotをサーバーに招待
+## 📖 プロジェクト概要
 
-### 3. Dify API設定
-1. [Dify](https://dify.ai/)にログイン
-2. ワークフローまたはチャットボットアプリを作成
-3. API Keyを取得
-4. ワークフローで画像入力を受け取れるように設定
+レシート画像をスマホで撮影してDiscordに投稿するだけで、AI（Dify）が自動的に以下の情報を抽出し、Google Spreadsheetに記録します：
 
-## 🔧 環境変数の設定
+- 🏪 **店舗名**
+- 💰 **金額**
+- 📝 **購入項目**（食費、日用品など）
 
-`.env`ファイルをプロジェクトルートに作成し、以下を設定してください：
+家計簿アプリへの手入力が不要になり、継続的な記録が可能になります。
 
-```env
-# Discord設定
-APPLICATION_ID=your_application_id
-PUBLIC_KEY=your_public_key
-DISCORD_TOKEN=your_bot_token
+## 🎥 デモ・発表資料
 
-# Dify設定
-DIFY_API_KEY=app-xxxxxxxxxxxx
-DIFY_ENDPOINT=https://api.dify.ai/v1
-DIFY_WORKFLOW_ID=your_workflow_id  # オプション：ワークフロー使用時
-```
+このプロジェクトについて、コミュニティで発表を行いました。
 
-## 🚀 起動方法
+![スライドタイトル](/images/slide-title.png)
 
-1. **プロジェクトディレクトリに移動**
-```bash
-cd /Users/hoshi/pg/discord-bot/1
-```
 
-2. **依存関係のインストール**
-```bash
-go mod download
-```
+📊 [発表スライド](https://speakerdeck.com/u_hoshi/dify-xspreadsheetsdezuo-rujia-ji-bo-turu)
 
-3. **Botの起動**
-```bash
-go run main.go
-```
 
-起動すると以下のようなログが表示されます：
-```
-登録: /hello
-登録: /hello2
-登録: /hello3
-Bot 起動中 Ctrl+Cで終了
-```
 
-## 📱 使用方法
+## 🏗️ システム構成
 
-### スラッシュコマンド
+![システム構成図](/images/system-architecture.png)
 
-1. **`/hello`** - 簡単な挨拶を返します
-2. **`/hello2`** - マルチセレクトメニューを表示（最大25個）
-3. **`/hello3`** - ボタンを表示（最大5個）
+## ✨ 主な機能
 
-### 画像処理機能
+### 🤖 自動レシート処理
+- レシート画像を投稿するだけで自動処理
+- 画像圧縮機能により、通信量を削減
+- AI による高精度な文字認識
 
-**`!upload` コマンド + 画像添付**
+### 💬 Discord コマンド
+- `いくら` - 今月の支出サマリーを表示
+- `!whoami` - ユーザー情報確認
+- `!ping` - Bot の動作確認
 
-1. Discordチャンネルで画像を添付
-2. メッセージに `!upload` と入力して送信
-3. Botが画像を**自動的に圧縮**（最大1500px、品質85%）
-4. 圧縮した画像をDifyに送信
-5. Difyで処理した結果がDiscordに返ってきます
+### 👥 複数人対応
+- ユーザーごとの支出を自動で振り分け
+- カップル・家族での共同管理に対応
 
-#### 処理フロー
-```
-Discord画像添付 → Bot受信 → ローカル一時保存 
-→ 画像圧縮（リサイズ + 品質調整）
-→ Difyファイルアップロード → Difyワークフロー実行 
-→ 結果をDiscordに返信 → 一時ファイル削除
-```
+### 🔄 ヘルスチェック機能
+- 定期的な死活監視
+- 無料ホスティングサービスのスリープ対策
 
-#### 画像圧縮の詳細
-- **最大幅**: 1500px（アスペクト比維持）
-- **JPEG品質**: 85%（高品質を維持しつつファイルサイズを削減）
-- **圧縮率**: 通常60-80%のファイルサイズ削減
-- **対応形式**: JPEG、PNG、GIF、BMP、WebP → JPEG変換
+## 🛠️ 技術スタック
 
-設定をカスタマイズするには、`.env`ファイルに以下を追加：
-```env
-IMAGE_MAX_WIDTH=1500        # 最大幅（px）
-IMAGE_QUALITY=85            # JPEG品質（1-100）
-ENABLE_COMPRESSION=true     # 圧縮ON/OFF
-```
-
-#### ユーザーごとのPayer切り替え
-
-Difyワークフローに渡す`payer`の値は、メッセージを送信したDiscordユーザーに応じて自動的に切り替わります。
-
-**設定方法**:
-1. `!whoami`コマンドで自分のユーザーIDを確認
-2. `main.go`の`getPayerFromDiscordUser`関数を編集
-3. ユーザーIDとPayerのマッピングを設定
-
-詳細は `docs/USER_PAYER_MAPPING.md` を参照してください。
-
-### その他のコマンド
-
-- **`!ping`** - Botの応答確認（"Pong!"を返します）
-- **`!whoami`** - 自分のDiscordユーザー情報を表示（ID、ユーザー名、表示名）
-
-## 🛠️ Dify側の設定
-
-### ワークフロー設定例
-
-1. **Start Node**で画像入力を受け取る設定
-   - Input変数: `image` (type: `File`)
-   
-2. **処理ノード**で画像を分析
-   - LLMノードやVisionモデルを使用
-   
-3. **End Node**で結果を返す
-
-### inputs設定
-ワークフローのinputsには以下の形式で画像が渡されます：
-```json
-{
-  "image": {
-    "transfer_method": "local_file",
-    "upload_file_id": "ファイルID",
-    "type": "image"
-  }
-}
-```
-
-## 🐛 トラブルシューティング
-
-### Botが起動しない
-- `.env`ファイルが正しく設定されているか確認
-- `APPLICATION_ID`と`DISCORD_TOKEN`が正しいか確認
-
-### 画像がアップロードできない
-- `DIFY_API_KEY`が正しく設定されているか確認
-- Difyのプランで画像アップロードが許可されているか確認
-- ネットワーク接続を確認
-
-### ワークフローが実行されない
-- Dify側で画像入力を受け取る設定になっているか確認
-- `DIFY_ENDPOINT`が正しいか確認（自己ホスト版の場合は独自のエンドポイント）
-
-## 📝 ログ出力
-
-Bot起動中は以下のようなログが出力されます：
-
-```
-📷 onMessageCreate Received message: !upload
-📥 画像をダウンロードしました: IMG_0388.JPG
-✅ Difyにファイルをアップロードしました: ID=xxx, Name=IMG_0388.JPG
-✅ Difyワークフローを実行しました: {...}
-```
-
-## 🔄 停止方法
-
-`Ctrl+C` でBotを終了できます。
+| カテゴリ | 技術 |
+|---------|-----|
+| **言語** | Go 1.24.5 |
+| **Bot Framework** | discordgo |
+| **AI/画像解析** | Dify (GPT-4 Vision) |
+| **データ保存** | Google Spreadsheet |
+| **中間処理** | Google Apps Script |
+| **ホスティング** | Koyeb (or Docker) |
+| **画像処理** | imaging (圧縮・リサイズ) |
 
 ## 📂 プロジェクト構成
 
 ```
-/Users/hoshi/pg/discord-bot/1/
-├── main.go          # メインプログラム
-├── go.mod           # Go依存関係管理
-├── go.sum           # 依存関係チェックサム
-├── .env             # 環境変数設定（要作成）
-├── .gitignore       # Gitで無視するファイル
-└── README.md        # このファイル
+budget-book-discord-bot/
+├── main.go          # メイン処理、メッセージハンドラー
+├── health.go        # ヘルスチェック機能
+├── image.go         # 画像ダウンロード・圧縮
+├── dify.go          # Dify API連携
+├── utils.go         # ユーティリティ関数
+├── go.mod           # 依存関係管理
+├── Dockerfile       # Docker設定
+├── README.md        # このファイル（プロジェクト概要）
+└── docs/
+    └── README.md    # 開発者向け詳細ドキュメント
 ```
 
-## 🔐 セキュリティ注意事項
+## 🚀 クイックスタート
 
-- `.env`ファイルは絶対にGitにコミットしないでください
-- Discord TokenやDify API Keyは第三者に漏らさないでください
-- 本番環境では環境変数を適切に管理してください
+```bash
+# リポジトリのクローン
+git clone https://github.com/u-Hoshi/budget-book-discord-bot.git
+cd budget-book-discord-bot
+
+# 環境変数の設定（.envファイルを作成）
+# 必要な環境変数: DISCORD_TOKEN, DIFY_API_KEY, GAS_ENDPOINT など
+
+# 依存関係のインストール
+go mod tidy
+
+# 起動
+go run main.go
+```
+
+**詳細な開発手順は [docs/README.md](docs/README.md) を参照してください。**
+
+## 📚 ドキュメント
+
+- **[開発ガイド](docs/README.md)** - 開発環境構築、詳細な使い方
+- [ユーザーマッピング設定](docs/USER_PAYER_MAPPING.md) - 複数人での支出管理
+- [画像圧縮設定](docs/IMAGE_COMPRESSION.md) - 画像処理のカスタマイズ
+- [トラブルシューティング](docs/TROUBLESHOOTING_401.md) - よくある問題と解決方法
+
+## 💡 開発の背景
+
+家計簿アプリへの手入力が面倒で継続できない問題を解決するために開発しました。
+
+**課題:**
+- レシートの手入力が面倒
+- 家計簿アプリを開くのが億劫
+- 継続できない
+
+**解決策:**
+- 普段使っているDiscordに投稿するだけ
+- AI が自動で内容を読み取り
+- Google Spreadsheet に自動記録
+
+結果として、**家計簿の記録を継続できるようになりました**。
+
+## 🔐 セキュリティ
+
+- `.env` ファイルは Git にコミットしない
+- Discord Token、API Key は第三者に漏らさない
+- 本番環境では環境変数を適切に管理
+
+## 📝 ライセンス
+
+このプロジェクトは個人利用目的で開発されました。
+
+## 👤 作者
+
+**u-Hoshi**
+- GitHub: [@u-Hoshi](https://github.com/u-Hoshi)
+
+## 🤝 コントリビューション
+
+バグ報告や機能追加の提案は Issues でお願いします。
