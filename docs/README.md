@@ -234,6 +234,27 @@ go build -o bot
 ls *.go
 ```
 
+### テストコマンド
+
+```bash
+# 全テストを実行
+go test -v
+
+# カバレッジ付きで実行
+go test -cover
+
+# カバレッジの詳細を確認
+go test -cover -coverprofile=coverage.out
+go tool cover -func=coverage.out
+
+# 特定のテストのみ実行
+go test -v -run TestTruncate
+go test -v -run TestGetPayer
+
+# ベンチマークを実行
+go test -bench=.
+```
+
 ### トラブルシューティング
 
 #### `undefined: XXX` エラーが出る
@@ -300,6 +321,97 @@ budget-book-discord-bot/
 `Ctrl+C` でBotをシャットダウンできます。
 
 graceful shutdown が実装されているため、安全に終了できます。
+
+## 🧪 テストについて
+
+このプロジェクトでは、**実装のコアとなるビジネスロジック**にのみテストを記述しています。
+
+### ✅ テスト対象（カバレッジ: 100%）
+
+以下の純粋関数には、包括的なテストを実装しています：
+
+| 関数 | 役割 | テストケース数 |
+|------|------|---------------|
+| `TruncateString()` | 文字列切り詰め（マルチバイト文字対応） | 6 |
+| `FormatAmountWithComma()` | 金額のカンマ区切りフォーマット | 7 |
+| `GetMimeType()` | ファイル拡張子からMIME type判定 | 8 |
+| `getPayerFromDiscordUser()` | ユーザーID/名前からpayerを判定 | 7 |
+
+### ❌ テスト不要と判断した部分
+
+外部サービス（Dify、Google Spreadsheet、Discord）への橋渡しとなる関数は、**モックだらけのテストは価値が低い**ため、実装していません：
+
+- `UploadImageToDify()` - Dify API呼び出し
+- `RunDifyWorkflowWithImage()` - Difyワークフロー実行
+- `DownloadImage()` / `CompressImage()` - 外部ライブラリのラッパー
+- Discord関連のハンドラ - 外部サービス統合
+- `main()` - 統合処理
+
+### 🎯 テスト方針
+
+処理の大部分をDifyやSpreadsheet側で行っているため、このBotは**「接着剤」の役割**です。
+
+そのため、以下の方針でテストを実装しています：
+
+1. **純粋関数のビジネスロジック** → テスト必須（100%カバレッジ）
+2. **外部APIとの統合** → E2Eテストや手動テストで確認
+3. **統合処理・フレームワーク呼び出し** → テスト不要
+
+この方針により、**コストパフォーマンスの高いテスト**を実現しています。
+
+### 🐛 テストで発見したバグ
+
+テスト実装により、実際にバグを発見・修正しました
+
+**問題**: `TruncateString()` が日本語（マルチバイト文字）を扱う際に文字が壊れる
+
+```go
+// 修正前（バグあり）
+func TruncateString(s string, maxLen int) string {
+    if len(s) <= maxLen {  // len(s) はバイト数
+        return s
+    }
+    return s[:maxLen] + "...(省略)"  // バイト位置で切るため文字が壊れる
+}
+
+// 修正後
+func TruncateString(s string, maxLen int) string {
+    runes := []rune(s)  // 文字（ルーン）として扱う
+    if len(runes) <= maxLen {
+        return s
+    }
+    return string(runes[:maxLen]) + "...(省略)"
+}
+```
+
+**影響**: Discordへの返信メッセージで日本語が文字化けする可能性があった  
+**対応**: テストケース追加により今後同様のバグを防止
+
+### 📊 カバレッジレポート
+
+```bash
+$ go test -cover
+PASS
+coverage: 7.6% of statements
+```
+
+全体カバレッジは7.6%ですが、**テスト対象関数は100%**です。これは、外部サービス連携のコードが大部分を占めるためです。
+
+### 💡 テスト実行例
+
+```bash
+# 全テスト実行
+$ go test -v
+=== RUN   TestTruncateString
+=== RUN   TestTruncateString/通常ケース
+=== RUN   TestTruncateString/長い文字列
+...
+--- PASS: TestTruncateString (0.00s)
+=== RUN   TestFormatAmountWithComma
+...
+PASS
+ok      github.com/u-Hoshi/budget-book-discord-bot      0.204s
+```
 
 ## 🔐 セキュリティ注意事項
 

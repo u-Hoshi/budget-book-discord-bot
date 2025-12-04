@@ -97,7 +97,7 @@ go mod tidy
 go run main.go
 ```
 
-**詳細な開発手順は [docs/README.md](docs/README.md) を参照してください。**
+**詳細な開発手順・テスト方法は [docs/README.md](docs/README.md) を参照してください。**
 
 ## 📚 ドキュメント
 

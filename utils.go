@@ -6,10 +6,12 @@ import (
 )
 
 func TruncateString(s string, maxLen int) string {
-	if len(s) <= maxLen {
+	// ルーン（文字）で長さを判定（マルチバイト文字対応）
+	runes := []rune(s)
+	if len(runes) <= maxLen {
 		return s
 	}
-	return s[:maxLen] + "...(省略)"
+	return string(runes[:maxLen]) + "...(省略)"
 }
 
 // 金額にカンマを追加する関数（例: "食費：31828" -> "食費：31,828"）
